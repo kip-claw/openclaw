@@ -1,0 +1,22 @@
+name: Wiki Open Items Proof
+
+on:
+  push:
+    branches: [proof/wiki-open-items-sandbox]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sandbox-bridge-isolation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test extensions/memory-wiki/src/tool.test.ts
