@@ -824,6 +824,14 @@ function createServerMcpRuntime(
         if (
           !reusedSession &&
           resolved.stdioLaunch &&
+          // Windows' own CreateProcess does an implicit current-directory
+          // search plus PATHEXT/shim/node-entrypoint resolution that this
+          // best-effort checker cannot fully replicate (see the shared
+          // production resolver in plugin-sdk/windows-spawn.ts). A false
+          // negative here would block a working server, which is worse than
+          // the generic error this diagnostic is meant to improve on, so
+          // this gate only runs where the check's fidelity is solid.
+          process.platform !== "win32" &&
           !(await stdioCommandExists(
             resolved.stdioLaunch.command,
             resolved.stdioLaunch.cwd,
