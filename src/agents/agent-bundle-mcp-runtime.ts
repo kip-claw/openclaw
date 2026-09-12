@@ -821,35 +821,33 @@ function createServerMcpRuntime(
 
       try {
         failIfDisposed();
-        if (
-          !reusedSession &&
-          resolved.stdioLaunch &&
-          // Windows' own CreateProcess does an implicit current-directory
-          // search plus PATHEXT/shim/node-entrypoint resolution that this
-          // best-effort checker cannot fully replicate (see the shared
-          // production resolver in plugin-sdk/windows-spawn.ts). A false
-          // negative here would block a working server, which is worse than
-          // the generic error this diagnostic is meant to improve on, so
-          // this gate only runs where the check's fidelity is solid.
-          process.platform !== "win32" &&
-          !(await stdioCommandExists(
-            resolved.stdioLaunch.command,
-            resolved.stdioLaunch.cwd,
-            resolved.stdioLaunch.env,
-          ))
-        ) {
+        try {
+          await ensureSessionConnected(session, resolved.connectionTimeoutMs);
+        } catch (connectError) {
           // A missing launcher binary (e.g. `uvx` never installed) otherwise
-          // surfaces only as a generic transport "Connection closed" error
-          // once the spawn fails, with no hint at the actual cause. Only
-          // matters when actually about to spawn: an already-connected
-          // session must keep refreshing its catalog even if its launcher
-          // has since become unavailable on disk.
-          throw new Error(
-            `stdio command not found or not executable: ${resolved.stdioLaunch.command} — is it installed and on PATH?`,
-          );
+          // surfaces only as a generic transport "Connection closed" error,
+          // with no hint at the actual cause. This best-effort check cannot
+          // fully replicate every platform's real launch semantics (PATHEXT,
+          // wrapper/shim resolution, symlink traversal, Windows' implicit
+          // current-directory search), so it only ever enriches a connection
+          // that has already failed for some other reason, never vetoes an
+          // attempt before it happens — a false negative here can only
+          // affect the wording of an error a working server never reaches.
+          if (
+            resolved.stdioLaunch &&
+            !(await stdioCommandExists(
+              resolved.stdioLaunch.command,
+              resolved.stdioLaunch.cwd,
+              resolved.stdioLaunch.env,
+            ))
+          ) {
+            throw new Error(
+              `stdio command not found or not executable: ${resolved.stdioLaunch.command} — is it installed and on PATH?`,
+              { cause: connectError },
+            );
+          }
+          throw connectError;
         }
-        failIfDisposed();
-        await ensureSessionConnected(session, resolved.connectionTimeoutMs);
         failIfDisposed();
         const capabilities = summarizeServerCapabilities(session.client.getServerCapabilities());
         let listedTools: Tool[];
