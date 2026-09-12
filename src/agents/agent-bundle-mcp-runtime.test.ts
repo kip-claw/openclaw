@@ -1584,7 +1584,10 @@ describe("session MCP runtime", () => {
       expect(catalog.servers).toEqual({});
       expect(catalog.tools).toEqual([]);
       expect(catalog.diagnostics?.[0]?.serverName).toBe("missingbinary");
-      expect(catalog.diagnostics?.[0]?.message).toBe(
+      // The formatted message also carries the original connect failure via
+      // its cause chain (redactMcpDiagnosticError -> formatErrorMessage), so
+      // assert the actionable prefix rather than the exact full string.
+      expect(catalog.diagnostics?.[0]?.message).toContain(
         `stdio command not found or not executable: ${missingCommand} — is it installed and on PATH?`,
       );
     } finally {
@@ -2038,7 +2041,11 @@ describe("session MCP runtime", () => {
         await fs.rm(wrapperPath, { force: true });
 
         await fs.writeFile(notificationReleasePath, "release", "utf8");
-        await waitForFileText(logPath, "notify tools/list_changed", LIST_TOOLS_SERVER_LOG_TIMEOUT_MS);
+        await waitForFileText(
+          logPath,
+          "notify tools/list_changed",
+          LIST_TOOLS_SERVER_LOG_TIMEOUT_MS,
+        );
         await waitForPredicate(
           () => runtime.peekCatalog() === null,
           "list_changed to invalidate the catalog",
