@@ -1563,6 +1563,35 @@ describe("session MCP runtime", () => {
     }
   });
 
+  it("reports a missing stdio launcher command instead of a generic transport close", async () => {
+    const missingCommand = `openclaw-test-missing-command-${randomUUID()}`;
+    const runtime = await getOrCreateSessionMcpRuntime({
+      sessionId: "session-missing-command",
+      sessionKey: "agent:test:session-missing-command",
+      workspaceDir: "/workspace",
+      cfg: {
+        mcp: {
+          servers: {
+            missingbinary: { command: missingCommand, args: [] },
+          },
+        },
+      },
+    });
+
+    try {
+      const catalog = await runtime.getCatalog();
+
+      expect(catalog.servers).toEqual({});
+      expect(catalog.tools).toEqual([]);
+      expect(catalog.diagnostics?.[0]?.serverName).toBe("missingbinary");
+      expect(catalog.diagnostics?.[0]?.message).toBe(
+        `stdio command not found or not executable: ${missingCommand} — is it installed and on PATH?`,
+      );
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("redacts credentials from MCP catalog diagnostics", async () => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "bundle-mcp-diagnostic-redaction-"));
     const serverPath = path.join(tempDir, "diagnostic-redaction.mjs");

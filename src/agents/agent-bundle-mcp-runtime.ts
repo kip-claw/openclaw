@@ -54,6 +54,7 @@ import { redactMcpDiagnosticError } from "./mcp-error.js";
 import { createMcpJsonSchemaValidator } from "./mcp-json-schema-validator.js";
 import { sanitizeMcpMetadataText } from "./mcp-metadata.js";
 import { collectMcpPaginatedItems } from "./mcp-pagination.js";
+import { stdioCommandExists } from "./mcp-stdio-command-check.js";
 import { isMcpToolAllowed, normalizeMcpToolFilter } from "./mcp-tool-filter.js";
 import { normalizeMcpToolCatalog, type McpToolCatalogMetadata } from "./mcp-tool-metadata.js";
 import { resolveMcpTransport } from "./mcp-transport.js";
@@ -819,6 +820,22 @@ function createServerMcpRuntime(
       }
 
       try {
+        failIfDisposed();
+        if (
+          resolved.stdioLaunch &&
+          !(await stdioCommandExists(
+            resolved.stdioLaunch.command,
+            resolved.stdioLaunch.cwd,
+            resolved.stdioLaunch.env,
+          ))
+        ) {
+          // A missing launcher binary (e.g. `uvx` never installed) otherwise
+          // surfaces only as a generic transport "Connection closed" error
+          // once the spawn fails, with no hint at the actual cause.
+          throw new Error(
+            `stdio command not found or not executable: ${resolved.stdioLaunch.command} — is it installed and on PATH?`,
+          );
+        }
         failIfDisposed();
         await ensureSessionConnected(session, resolved.connectionTimeoutMs);
         failIfDisposed();
