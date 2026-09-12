@@ -2178,6 +2178,7 @@ jobs:
       - name: Dispatch detached Linux app promotion
         env:
           GH_TOKEN: ${{ github.token }}
+          PARENT_WORKFLOW_SHA: ${{ github.workflow_sha }}
           RELEASE_TAG: ${{ inputs.tag }}
           TARGET_SHA: ${{ needs.resolve_release_target.outputs.sha }}
         run: |

@@ -271,6 +271,7 @@ jobs:
           set -euo pipefail
           RELEASE_TAG="$(jq -er '.inputs.tag' <<< "$RELEASE_REQUEST")"
           TARGET_SHA="$(jq -er '.sourceSha' <<< "$RELEASE_REQUEST")"
+          PARENT_WORKFLOW_SHA="$(jq -er '.tooling.sha' <<< "$RELEASE_REQUEST")"
           source scripts/lib/release-publish-children.sh
           verify_release_tag_target
           promote_linux_release_assets
