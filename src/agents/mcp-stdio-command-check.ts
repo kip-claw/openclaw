@@ -13,7 +13,10 @@ function resolveConfiguredPath(filePath: string, cwd: unknown): string {
   if (path.isAbsolute(filePath)) {
     return filePath;
   }
-  const base = typeof cwd === "string" && cwd.trim() ? cwd.trim() : process.cwd();
+  // A meaningful cwd (or PATH entry, below) can contain significant leading
+  // or trailing whitespace on POSIX; trimming only decides whether a value
+  // was configured at all, never the literal bytes used to resolve it.
+  const base = typeof cwd === "string" && cwd.trim().length > 0 ? cwd : process.cwd();
   return path.resolve(base, filePath);
 }
 
@@ -64,9 +67,12 @@ export async function stdioCommandExists(
   }
   const configuredPath =
     process.platform === "win32" ? resolveEnvironmentValue(env, "PATH") : env?.PATH;
+  // Only a truly empty segment means "current directory" in PATH semantics
+  // (e.g. a leading/trailing/doubled delimiter); a non-empty entry keeps its
+  // literal bytes, including any significant surrounding whitespace.
   const pathEntries = (configuredPath ?? process.env.PATH ?? "")
     .split(path.delimiter)
-    .map((entry) => entry.trim() || ".");
+    .map((entry) => (entry === "" ? "." : entry));
   for (const pathEntry of pathEntries) {
     const resolvedPathEntry = path.isAbsolute(pathEntry)
       ? pathEntry

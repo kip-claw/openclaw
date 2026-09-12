@@ -48,6 +48,46 @@ describe("stdioCommandExists", () => {
     }
   });
 
+  // POSIX PATH lookup and directory resolution use literal bytes; only a
+  // truly empty PATH segment means "current directory". A directory name
+  // with significant trailing whitespace is unusual but valid, and this
+  // checker must not silently strip it before searching.
+  it.skipIf(process.platform === "win32")(
+    "preserves significant trailing whitespace in a PATH entry",
+    async () => {
+      const parentDir = await fs.mkdtemp(path.join(os.tmpdir(), "stdio-command-check-ws-"));
+      try {
+        const paddedDir = path.join(parentDir, "bin ");
+        await fs.mkdir(paddedDir);
+        const scriptPath = path.join(paddedDir, "launcher");
+        await fs.writeFile(scriptPath, "#!/bin/sh\nexit 0\n");
+        await fs.chmod(scriptPath, 0o755);
+
+        expect(await stdioCommandExists("launcher", undefined, { PATH: paddedDir })).toBe(true);
+      } finally {
+        await fs.rm(parentDir, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "preserves significant trailing whitespace in cwd",
+    async () => {
+      const parentDir = await fs.mkdtemp(path.join(os.tmpdir(), "stdio-command-check-cwd-ws-"));
+      try {
+        const paddedDir = path.join(parentDir, "work ");
+        await fs.mkdir(paddedDir);
+        const scriptPath = path.join(paddedDir, "runnable.sh");
+        await fs.writeFile(scriptPath, "#!/bin/sh\nexit 0\n");
+        await fs.chmod(scriptPath, 0o755);
+
+        expect(await stdioCommandExists("./runnable.sh", paddedDir, undefined)).toBe(true);
+      } finally {
+        await fs.rm(parentDir, { recursive: true, force: true });
+      }
+    },
+  );
+
   // Node's own spawn (via libuv) tries PATHEXT suffixes for an explicit path
   // too, not just PATH-search candidates: an extensionless `C:\Tools\uvx`
   // successfully launches `C:\Tools\uvx.exe`. This must match, or a working
