@@ -47,4 +47,24 @@ describe("stdioCommandExists", () => {
       await fs.rm(tempDir, { recursive: true, force: true });
     }
   });
+
+  // Node's own spawn (via libuv) tries PATHEXT suffixes for an explicit path
+  // too, not just PATH-search candidates: an extensionless `C:\Tools\uvx`
+  // successfully launches `C:\Tools\uvx.exe`. This must match, or a working
+  // Windows launch config trips a false "command not found".
+  describe.runIf(process.platform === "win32")("on Windows", () => {
+    it("resolves an extensionless absolute path via its .exe suffix", async () => {
+      const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "stdio-command-check-win-"));
+      try {
+        const exePath = path.join(tempDir, "runnable.exe");
+        await fs.writeFile(exePath, "");
+
+        expect(
+          await stdioCommandExists(path.join(tempDir, "runnable"), undefined, undefined),
+        ).toBe(true);
+      } finally {
+        await fs.rm(tempDir, { recursive: true, force: true });
+      }
+    });
+  });
 });

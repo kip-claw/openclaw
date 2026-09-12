@@ -822,6 +822,7 @@ function createServerMcpRuntime(
       try {
         failIfDisposed();
         if (
+          !reusedSession &&
           resolved.stdioLaunch &&
           !(await stdioCommandExists(
             resolved.stdioLaunch.command,
@@ -831,7 +832,10 @@ function createServerMcpRuntime(
         ) {
           // A missing launcher binary (e.g. `uvx` never installed) otherwise
           // surfaces only as a generic transport "Connection closed" error
-          // once the spawn fails, with no hint at the actual cause.
+          // once the spawn fails, with no hint at the actual cause. Only
+          // matters when actually about to spawn: an already-connected
+          // session must keep refreshing its catalog even if its launcher
+          // has since become unavailable on disk.
           throw new Error(
             `stdio command not found or not executable: ${resolved.stdioLaunch.command} — is it installed and on PATH?`,
           );

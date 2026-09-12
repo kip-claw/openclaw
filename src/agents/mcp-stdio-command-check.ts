@@ -50,7 +50,17 @@ export async function stdioCommandExists(
   const hasPathSeparator =
     path.isAbsolute(command) || command.includes("/") || command.includes("\\");
   if (hasPathSeparator) {
-    return isExecutable(resolveConfiguredPath(command, cwd));
+    const resolvedPath = resolveConfiguredPath(command, cwd);
+    // Node's own spawn (via libuv) tries PATHEXT suffixes for an explicit
+    // path too, not just PATH-search candidates — an extensionless
+    // `C:\Tools\uvx` successfully launches `C:\Tools\uvx.exe`. Match that so
+    // this check doesn't reject a launch config the actual launcher accepts.
+    for (const candidate of executableCandidates(resolvedPath)) {
+      if (await isExecutable(candidate)) {
+        return true;
+      }
+    }
+    return false;
   }
   const configuredPath =
     process.platform === "win32" ? resolveEnvironmentValue(env, "PATH") : env?.PATH;
